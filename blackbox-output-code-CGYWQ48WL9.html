@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Request with the Dean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.20/dist/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        /* Custom styles for theme */
+        .light { background-color: white; color: black; }
+        .dark { background-color: #1a1a1a; color: white; }
+        .priority-high { color: red; }
+        .priority-medium { color: orange; }
+        .priority-low { color: green; }
+        .hidden { display: none; }
+        .visible { display: block; }
+        /* Progress bar animation */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background-color: #f3f3f3;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4caf50;
+            animation: progress 2s ease-in-out;
+        }
+        @keyframes progress {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        /* Custom priority indicator */
+        .priority-indicator {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .priority-high-bg { background-color: red; }
+        .priority-medium-bg { background-color: orange; }
+        .priority-low-bg { background-color: green; }
+        form#meeting-form input:focus { outline: none; border-color: #4f46e5; }
+        select:focus { outline: none; border-color: #4f46e5; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col light">
+    <header class="p-4 bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Meeting Request with the Dean</h1>
+            <button id="theme-toggle" class="text-lg"><i class="fas fa-sun"></i></button>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto p-4">
+        <!-- Meeting Request Form -->
+        <div id="form-section" class="visible">
+            <h2 class="text-xl font-semibold mb-4">Request a Meeting</h2>
+            <form id="meeting-form" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Full Name</label>
+                    <input type="text" id="fullname" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Email Address (Optional)</label>
+                    <input type="email" id="email" class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Priority</label>
+                    <select id="priority" class="w-full p-2 border rounded">
+                        <option value="High"><span class="priority-high-bg priority-indicator"></span>High</option>
+                        <option value="Medium"><span class="priority-medium-bg priority-indicator"></span>Medium</option>
+                        <option value="Low"><span class="priority-low-bg priority-indicator"></span>Low</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Headline (Brief Description)</label>
+                    <input type="text" id="headline" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4 flex items-center">
+                    <input type="checkbox" id="confidential" class="mr-2">
+                    <label class="text-sm">Mark as Confidential</label>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Preferred Date & Time</label>
+                    <input type="text" id="datetime" required class="w-full p-2 border rounded" placeholder="Select date and time">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Submit Request</button>
+            </form>
+            <div id="confirmation-message" class="hidden mt-4 p-4 bg-green-200 dark:bg-green-800 rounded">
+                <div id="progress-bar-container" class="mb-2">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+                <p>Your request has been received. You will receive a calendar invitation once it is applicable to fit into Prof. Adel’s schedule.</p>
+            </div>
+        </div>
+
+        <!-- Admin Login -->
+        <div id="login-section" class="visible mt-8">
+            <h2 class="text-xl font-semibold mb-4">Admin Login</h2>
+            <form id="login-form" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="admin-password" required class="w-full p-2 border rounded">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Login</button>
+            </form>
+            <div id="login-error" class="hidden mt-4 text-red-600"></div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="dashboard-section" class="hidden mt-8">
+            <h2 class="text-xl font-semibold mb-4">Admin Dashboard</h2>
+            <!-- Filters and Search -->
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input type="text" id="search" placeholder="Search by name, headline, tags" class="p-2 border rounded">
+                    <select id="filter-status" class="p-2 border rounded">
+                        <option value="">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <select id="sort-by" class="p-2 border rounded">
+                        <option value="created_at">Date</option>
+                        <option value="priority">Priority</option>
+                        <option value="status">Status</option>
+                    </select>
+                    <button id="apply-filters" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply</button>
+                </div>
+                <div class="mt-4">
+                    <button id="export-excel" class="bg-green-600 text-white px-4 py-2 rounded mr-2 hover:bg-green-700">Export to Excel (CSV)</button>
+                    <button id="export-pdf" class="bg-red-600 text-white px-4 py-2 rounded mr-2 hover:bg-red-700">Export to PDF</button>
+                    <button id="send-summary" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">Send Daily Summary Email</button>
+                </div>
+            </div>
+
+            <!-- Requests List -->
+            <div id="requests-list" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                <!-- Dynamic list here -->
+            </div>
+
+            <!-- Analytics -->
+            <div id="analytics" class="mt-8 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                <h3 class="text-lg font-semibold mb-4">Analytics</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <canvas id="priority-chart"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="topics-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div id="settings" class="mt-8 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                <h3 class="text-lg font-semibold mb-4">Settings</h3>
+                <form id="settings-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Change Password</label>
+                        <input type="password" id="new-password" class="w-full p-2 border rounded">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Notification Email</label>
+                        <input type="email" id="notification-email" class="w-full p-2 border rounded">
+                    </div>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Update</button>
+                </form>
+            </div>
+
+            <button id="logout-btn" class="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Logout</button>
+        </div>
+    </main>
+
+    <footer class="p-4 bg-gray-800 text-white text-center">
+        <p>&copy; 2023 Meeting Request System</p>
+    </footer>
+
+    <script>
+        // Initialize localStorage defaults
+        if (!localStorage.getItem('requests')) {
+            localStorage.setItem('requests', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('adminPassword')) {
+            localStorage.setItem('adminPassword', '213783');
+        }
+        if (!localStorage.getItem('notificationEmail')) {
+            localStorage.setItem('notificationEmail', 'Aya.hasan@bue.edu.eg');
+        }
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        let theme = localStorage.getItem('theme') || 'light';
+        body.classList.add(theme);
+
+        themeToggle.addEventListener('click', () => {
+            theme = theme === 'light' ? 'dark' : 'light';
+            body.classList.remove('light', 'dark');
+            body.classList.add(theme);
+            themeToggle.innerHTML = theme === 'light' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            localStorage.setItem('theme', theme);
+        });
+
+        // sections
+        const formSection = document.getElementById('form-section');
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        let loggedIn = false;
+
+        function showSections() {
+            if (loggedIn) {
+                formSection.classList.add('hidden');
+                loginSection.classList.add('hidden');
+                dashboardSection.classList.remove('hidden');
+                renderRequests();
+                renderAnalytics();
+            } else {
+                formSection.classList.remove('hidden');
+                loginSection.classList.remove('hidden');
+                dashboardSection.classList.add('hidden');
+            }
+        }
+
+        // Confidential behavior
+        document.getElementById('confidential').addEventListener('change', function() {
+            const headline = document.getElementById('headline');
+            headline.disabled = this.checked;
+            headline.classList.toggle('bg-gray-200 cursor-not-allowed', this.checked);
+            headline.classList.toggle('w-full p-2 border rounded', !this.checked);
+        });
+
+        // Meeting form submission
+        const meetingForm = document.getElementById('meeting-form');
+        const confirmationMessage = document.getElementById('confirmation-message');
+        const progressBarContainer = document.getElementById('progress-bar-container');
+
+        meetingForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const fullname = document.getElementById('fullname').value;
+            const email = document.getElementById('email').value;
+            const priority = document.getElementById('priority').value;
+            const headline = document.getElementById('headline').value;
+            const confidential = document.getElementById('confidential').checked;
+            const datetime = document.getElementById('datetime').value;
+
+            const request = {
+                id: Date.now(),
+                fullname,
+                email,
+                priority,
+                headline,
+                confidential,
+                datetime,
+                status: 'Pending',
+                tags: '',
+                archived: false,
+                created_at: new Date().toISOString(),
+            };
+
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            requests.push(request);
+            localStorage.setItem('requests', JSON.stringify(requests));
+
+            // Show confirmation
+            confirmationMessage.classList.remove('hidden');
+            // Simulate email only if email is provided
+            if (email) {
+                console.log('Admin notification to:', localStorage.getItem('notificationEmail'), request);
+                console.log('Confirmation to requester:', email, request);
+            } else {
+                console.log('Admin notification to:', localStorage.getItem('notificationEmail'), request);
+                console.log('No confirmation email sent as email was not provided.');
+            }
+
+            // Clear form
+            meetingForm.reset();
+
+            // Hide confirmation after 5 seconds
+            setTimeout(() => {
+                confirmationMessage.classList.add('hidden');
+            }, 5000);
+        });
+
+        // Admin login
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('admin-password').value;
+            if (password === localStorage.getItem('adminPassword')) {
+                loggedIn = true;
+                loginError.classList.add('hidden');
+                showSections();
+            } else {
+                loginError.textContent = 'Invalid password';
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            loggedIn = false;
+            showSections();
+        });
+
+        // Render requests
+        function renderRequests() {
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            const search = document.getElementById('search').value.toLowerCase();
+            const status = document.getElementById('filter-status').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            let filtered = requests.filter(r => {
+                return (search === '' || r.fullname.toLowerCase().includes(search) || r.headline.toLowerCase().includes(search) || r.tags.toLowerCase().includes(search)) &&
+                    (status === '' || r.status === status) && !r.archived;
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                if (sortBy === 'priority') {
+                    const prio = {'High': 3, 'Medium': 2, 'Low': 1};
+                    return prio[b.priority] - prio[a.priority];
+                } else if (sortBy === 'created_at') {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                } else {
+                    return a[sortBy].localeCompare(b[sortBy]);
+                }
+            });
+
+            const listElement = document.getElementById('requests-list');
+            listElement.innerHTML = `<h3 class="text-lg font-semibold mb-4">Requests List</h3>`;
+            filtered.forEach(req => {
+                const item = `
+                    <div class="border-b pb-4 mb-4">
+                        <h4 class="font-medium">${req.fullname} - ${req.headline}</h4>
+                        <p>Email: ${req.email || 'Not provided'}</p>
+                        <p>Priority: <span class="priority-${req.priority.toLowerCase()}"><span class="priority-${req.priority.toLowerCase()}-bg priority-indicator"></span>${req.priority}</span> | Status: ${req.status}</p>
+                        <p>Confidential: ${req.confidential ? 'Yes' : 'No'}</p>
+                        <p>Date & Time: ${req.datetime}</p>
+                        <p>Tags: <input type="text" id="tags-${req.id}" value="${req.tags}" class="p-1 border rounded w-1/2"></p>
+                        <div class="mt-2">
+                            <select id="status-${req.id}" class="p-1 border rounded mr-2">
+                                <option value="Pending" ${req.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Scheduled" ${req.status === 'Scheduled' ? 'selected' : ''}>Scheduled</option>
+                                <option value="Completed" ${req.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                                <option value="Cancelled" ${req.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                            <button onclick="updateRequest(${req.id})" class="bg-blue-600 text-white px-2 py-1 rounded mr-1 hover:bg-blue-700">Update</button>
+                            <button onclick="archiveRequest(${req.id})" class="bg-gray-600 text-white px-2 py-1 rounded mr-1 hover:bg-gray-700"><i class="fas fa-archive"></i></button>
+                            <button onclick="deleteRequest(${req.id})" class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+                listElement.innerHTML += item;
+            });
+        }
+
+        // Update request
+        window.updateRequest = function(id) {
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            const req = requests.find(r => r.id === id);
+            req.status = document.getElementById(`status-${id}`).value;
+            req.tags = document.getElementById(`tags-${id}`).value;
+            localStorage.setItem('requests', JSON.stringify(requests));
+            renderRequests();
+        }
+
+        // Archive request
+        window.archiveRequest = function(id) {
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            const req = requests.find(r => r.id === id);
+            req.archived = true;
+            localStorage.setItem('requests', JSON.stringify(requests));
+            renderRequests();
+        }
+
+        // Delete request
+        window.deleteRequest = function(id) {
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            const filtered = requests.filter(r => r.id !== id);
+            localStorage.setItem('requests', JSON.stringify(filtered));
+            renderRequests();
+        }
+
+        // Apply filters
+        document.getElementById('apply-filters').addEventListener('click', () => {
+            renderRequests();
+        });
+
+        // Export to Excel (CSV)
+        document.getElementById('export-excel').addEventListener('click', () => {
+            const requests = JSON.parse(localStorage.getItem('requests')).filter(r => !r.archived);
+            let csv = 'ID,Full Name,Email,Priority,Headline,Confidential,Date & Time,Status,Tags,Created At\n';
+            requests.forEach(r => {
+                csv += `${r.id},"${r.fullname}","${r.email}","${r.priority}","${r.headline}","${r.confidential}",${new Date(r.datetime).toLocaleString()},"${r.status}","${r.tags || ''}","${new Date(r.created_at).toLocaleString()}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'requests.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Export to PDF
+        document.getElementById('export-pdf').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const requests = JSON.parse(localStorage.getItem('requests')).filter(r => !r.archived);
+            doc.text('Meeting Requests', 10, 10);
+            let y = 20;
+            requests.forEach(r => {
+                doc.text(`ID: ${r.id} | Name: ${r.fullname}`, 10, y);
+                y += 10;
+                doc.text(`Email: ${r.email} | Priority: ${r.priority}`, 10, y);
+                y += 10;
+                doc.text(`Headline: ${r.headline}`, 10, y);
+                y += 10;
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+            doc.save('requests.pdf');
+        });
+
+        // Send daily summary (simulate)
+        document.getElementById('send-summary').addEventListener('click', () => {
+            const today = new Date().toISOString().slice(0,10);
+            const todayRequests = JSON.parse(localStorage.getItem('requests')).filter(r => r.created_at.startsWith(today) && !r.archived);
+            console.log('Daily summary to:', localStorage.getItem('notificationEmail'), todayRequests);
+            alert('Daily summary simulated. Check console for details.');
+        });
+
+        // Render analytics
+        function renderAnalytics() {
+            const requests = JSON.parse(localStorage.getItem('requests'));
+            const priorityCount = { High: 0, Medium: 0, Low: 0 };
+            const topicCount = {};
+
+            requests.forEach(r => {
+                priorityCount[r.priority]++;
+                const words = r.headline.toLowerCase().match(/\b\w+\b/g);
+                if (words) {
+                    words.forEach(w => {
+                        if (w.length > 3) topicCount[w] = (topicCount[w] || 0) + 1;
+                    });
+                }
+            });
+
+            // Priority chart
+            const prioCtx = document.getElementById('priority-chart').getContext('2d');
+            new Chart(prioCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [priorityCount.High, priorityCount.Medium, priorityCount.Low],
+                        backgroundColor: ['red', 'orange', 'green'],
+                    }],
+                },
+            });
+
+            // Topics chart
+            const topics = Object.entries(topicCount).sort((a,b) => b[1] - a[1]).slice(0,10);
+            const topicCtx = document.getElementById('topics-chart').getContext('2d');
+            new Chart(topicCtx, {
+                type: 'bar',
+                data: {
+                    labels: topics.map(t => t[0]),
+                    datasets: [{
+                        label: 'Occurrences',
+                        data: topics.map(t => t[1]),
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                    }],
+                },
+            });
+        }
+
+        // Settings form
+        const settingsForm = document.getElementById('settings-form');
+        settingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newPass = document.getElementById('new-password').value;
+            const notifEmail = document.getElementById('notification-email').value;
+            if (newPass) localStorage.setItem('adminPassword', newPass);
+            if (notifEmail) localStorage.setItem('notificationEmail', notifEmail);
+            alert('Settings updated');
+            settingsForm.reset();
+        });
+
+        // Initialize date picker
+        flatpickr('#datetime', {
+            enableTime: true,
+            dateFormat: 'Y-m-d H:i',
+        });
+
+        // Load notification email on load
+        document.getElementById('notification-email').value = localStorage.getItem('notificationEmail');
+    </script>
+</body>
+</html>
+</content>
+</create_file>
